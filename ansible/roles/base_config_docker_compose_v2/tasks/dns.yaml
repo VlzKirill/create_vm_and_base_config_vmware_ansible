@@ -1,0 +1,43 @@
+---
+- name: Installing resolvconf
+  ansible.builtin.apt:
+    name: resolvconf
+    state: present
+    update_cache: yes
+    allow_downgrade: yes
+
+- name: Add hostname to hosts
+  ansible.builtin.lineinfile:
+    dest: /etc/hosts
+    insertafter: "EOF"
+    line: "127.0.0.1 {{ hostname }}"
+    state: present
+  notify: Restart vm
+
+- name: Create netplan config from j2 template
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: "/etc/resolvconf/resolv.conf.d/resolv"
+  register: netplan_config
+  notify:
+    - Restart vm
+
+- name: Recreate resolv.conf
+  block:
+    - name: Removing old resolv.conf
+      ansible.builtin.file:
+        path: "/etc/resolv.conf"
+        state: absent
+
+    - name: Create a symbolic link of resolv.conf
+      ansible.builtin.file:
+        src: /etc/resolvconf/resolv.conf.d/resolv
+        dest: /etc/resolv.conf
+        owner: root
+        group: root
+        mode: 0644
+        state: link
+  when: netplan_config.changed
+
+- name: Flush handlers
+  meta: flush_handlers

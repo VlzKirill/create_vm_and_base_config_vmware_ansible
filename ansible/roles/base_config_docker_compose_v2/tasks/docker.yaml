@@ -1,0 +1,24 @@
+---
+- name: "Adding user {{ ansible_user }} to docker group"
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+
+- name: Copy docker daemon config
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: 0644
+  notify: Restart docker
+
+- name: Flush handlers
+  meta: flush_handlers
+
+- name: Prevent packages from being upgraded
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: "{{ apt.base_packages }}"

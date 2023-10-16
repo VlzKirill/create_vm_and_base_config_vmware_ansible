@@ -1,0 +1,36 @@
+- name: Group of tasks that upgrade packages
+  vars:
+    max_retries: "{{ 5 if max_retries is undefined else max_retries | int }}"
+    retry_delay: "{{ 10 if retry_delay is undefined else retry_delay | int }}"
+
+  block:
+  - name: Increment the retry count
+    set_fact:
+      retry_count: "{{ 0 if retry_count is undefined else retry_count | int + 1 }}"
+  - name: Remove lock file (delete file)
+    ansible.builtin.file:
+      path: /var/lib/dpkg/lock-frontend
+      state: absent
+  - name: Remove lock file (delete file)
+    ansible.builtin.file:
+      path: /var/lib/dpkg/lock
+      state: absent
+  - name: Upgrade all packages to the latest version
+    ansible.builtin.apt:
+      upgrade: yes
+      force_apt_get: yes
+      update_cache: yes
+  rescue:
+    - fail:
+        msg: Maximum retries of grouped tasks reached
+      when: retry_count | int == max_retries | int
+    - debug:
+        msg: "Packages upgrade failed, let's give it another shot"
+
+    - name: Sleep between retries
+      wait_for:
+        timeout: "{{ retry_delay }}"
+      delegate_to: localhost
+      become: false
+
+    - include_tasks: upgrade_packages.yaml

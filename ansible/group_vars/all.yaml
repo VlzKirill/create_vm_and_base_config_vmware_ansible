@@ -1,0 +1,30 @@
+---
+vsphere:
+  hostname: hostname_name
+  datacenter: datacenter_name
+  datastore: datastore_name
+  cluster_name: cluster_name
+  network_name: network_name
+  resource_pool: resource_pool_name
+
+os:
+  template: template_name
+  guest_id: ubuntu64Guest
+
+vm:
+  disk_size: 150
+  memory: 8192
+  num_cpus: 2
+  cores_per_socket: 1
+  net:
+    ip: 1.2.3.4
+    mask: 255.255.255.0
+    gw: 1.2.3.1
+
+dns:
+  servers:
+    - 8.8.8.8
+#  suffix:
+ #   - dns_suffix
+
+hostname: vm_hostname

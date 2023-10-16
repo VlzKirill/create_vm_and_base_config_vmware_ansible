@@ -1,0 +1,37 @@
+---
+- name: Ubuntu settings
+  block:
+    - name: Set timezone to Europe/Moscow
+      ansible.builtin.timezone: name=Europe/Moscow
+
+    - name: Create netplan config from j2 template
+      ansible.builtin.template:
+        src: netplan.j2
+        dest: "/etc/netplan/01-netcfg.yaml"
+        owner: root
+        group: root
+        mode: 0644
+      register: netplan
+
+    - name: Netplan config
+      block:
+        - name: Disable cloud-init
+          ansible.builtin.file:
+            path: /etc/cloud/cloud-init.disabled
+            state: touch
+            owner: root
+            group: root
+            mode: u=rw,g=r,o=r
+
+        - name: Removing old config
+          ansible.builtin.file:
+            path: "/etc/netplan/50-cloud-init.yaml"
+            state: absent
+
+        - name: Apply netplan
+          ansible.builtin.shell: netplan apply
+
+        - name: Wait for system to become reachable
+          ansible.builtin.wait_for_connection:
+      when: netplan.changed == true
+  when: ansible_distribution == "Ubuntu"

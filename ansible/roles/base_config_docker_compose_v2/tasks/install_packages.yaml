@@ -1,0 +1,82 @@
+---
+- name: Проверить, добавлен ли Docker репозиторий
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/docker.list
+  register: docker_repo_file
+
+- name: Add docker repo
+  block:
+    - name: Create dir /etc/apt/keyrings
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Загрузить Docker GPG ключ и сохранить в /etc/apt/keyrings/docker.gpg
+      ansible.builtin.shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor > /etc/apt/keyrings/docker.gpg
+      args:
+        executable: /bin/bash
+
+    - name: Установить права на /etc/apt/keyrings/docker.gpg
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/docker.gpg
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Получить значение архитектуры системы
+      ansible.builtin.command: dpkg --print-architecture
+      register: dpkg_architecture
+
+    - name: ansible_distribution_release
+      debug:
+        var: ansible_distribution_release
+
+    - name: Добавить Docker репозиторий в /etc/apt/sources.list.d/docker.list
+      ansible.builtin.lineinfile:
+        path: /etc/apt/sources.list.d/docker.list
+        line: 'deb [arch={{ dpkg_architecture.stdout }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable'
+        create: yes
+        state: present
+  when: docker_repo_file.stat.exists == false
+
+- name: Check if docker-compose-plugin is installed
+  ansible.builtin.shell: dpkg -l | grep docker-compose-plugin
+  register: docker_compose_plugin_status
+  ignore_errors: yes
+
+- name: Install docker compose v2
+  block:
+    - name: Update cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Uninstall python package
+      ansible.builtin.pip:
+        name:
+          - docker-py
+          - docker
+          - docker-compose
+        state: absent
+
+    - name: Uninstall conflicting packages (if present)
+      ansible.builtin.apt:
+        name:
+        - docker.io
+        state: absent
+
+    - name: Installing list of packages
+      ansible.builtin.apt:
+        name: "{{ apt.base_packages }}"
+        state: present
+        update_cache: yes
+
+    - name: Remove old packages
+      ansible.builtin.apt:
+        autoremove: yes
+
+    - name: Remove lock file (delete file)
+      ansible.builtin.file:
+        path: /var/lib/dpkg/lock-frontend
+        state: absent
+  when: docker_compose_plugin_status.rc != 0

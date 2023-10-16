@@ -1,0 +1,18 @@
+---
+- name: Network and time settings
+  import_tasks: network.yaml
+
+- name: LVM
+  import_tasks: lvm.yaml
+
+#- name: Upgrade all packages ubuntu
+#  import_tasks: upgrade_packages.yaml
+
+- name: Install packages ubuntu
+  import_tasks: install_packages.yaml
+
+- name: Install and configure docker
+  import_tasks: docker.yaml
+
+#- name: Configure DNS
+#  import_tasks: dns.yaml

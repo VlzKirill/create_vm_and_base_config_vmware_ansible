@@ -1,0 +1,11 @@
+network:
+    ethernets:
+        ens192:
+            dhcp4: no
+            addresses: [{{ vm.net.ip }}/24]
+            gateway4: {{ vm.net.gw }}
+            nameservers:
+              addresses: {{ dns.servers }}
+              search: {{ dns.suffix }}
+    renderer: networkd
+    version: 2

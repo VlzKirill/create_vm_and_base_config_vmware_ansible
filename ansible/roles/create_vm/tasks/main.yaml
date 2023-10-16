@@ -1,0 +1,67 @@
+---
+- name: "Gather {{ hostname }} VM info"
+  community.vmware.vmware_vm_info:
+    hostname: "{{ vsphere.hostname }}"
+    username: "{{ vsphere_username }}"
+    password: "{{ vsphere_password }}"
+    vm_name: "{{ hostname }}"
+    validate_certs: false
+  ignore_errors: true
+  register: vm_info
+
+# and vm_info.msg == "Failed to find virtual machine"
+- name: "Create a {{ hostname }} machine from template and customize"
+  when: vm_info.failed == true
+  community.vmware.vmware_guest:
+    hostname: "{{ vsphere.hostname }}"
+    username: "{{ vsphere_username }}"
+    password: "{{ vsphere_password }}"
+    datacenter: "{{ vsphere.datacenter }}"
+    resource_pool: "{{ vsphere.resource_pool }}"
+    state: present
+    folder: "/{{ vsphere.datacenter }}/vm/"
+    template: "{{ os.template }}"
+    guest_id: "{{ os.guest_id }}"
+    name: "{{ hostname }}"
+    cluster: "{{ vsphere.cluster_name }}"
+    disk:
+      - size_gb: "{{ vm.disk_size }}"
+        type: thin
+        datastore: "{{ vsphere.tmp_datastore }}"
+    hardware:
+      memory_mb: "{{ vm.memory }}"
+      num_cpus: "{{ vm.num_cpus }}"
+      num_cpu_cores_per_socket: "{{ vm.cores_per_socket }}"
+      hotadd_cpu: true
+      hotadd_memory: true
+      hotremove_cpu: true
+      scsi: paravirtual
+    networks:
+      - name: "{{ vsphere.network_name }}"
+        type: static
+        ip: "{{ vm.net.ip }}"
+        netmask: "{{ vm.net.mask }}"
+        gateway: "{{ vm.net.gw }}"
+        device_type: vmxnet3
+        connected: true
+        start_connected: true
+    wait_for_ip_address: true
+    validate_certs: false
+    wait_for_ip_address_timeout: 120
+    customization:
+      dns_servers: "{{ dns.servers }}"
+      dns_suffix: "{{ dns.suffix }}"
+  register: vm_creation
+
+#- name: "Migrate VM to {{ vsphere.datastore }}"
+#  community.vmware.vmware_vmotion:
+#    hostname: "{{ vsphere.hostname }}"
+#    username: "{{ vsphere_username }}"
+#    password: "{{ vsphere_password }}"
+#    vm_name: "{{ hostname }}"
+#    destination_datastore: "{{ vsphere.datastore }}"
+#    validate_certs: false
+#  when: vm_creation.changed == true
+#  async: 3600
+#  poll: 10
+#  register: vmotion_task

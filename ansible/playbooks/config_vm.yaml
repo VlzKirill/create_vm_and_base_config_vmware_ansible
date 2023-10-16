@@ -1,0 +1,5 @@
+---
+- hosts: mon
+  roles:
+    - base_config_docker_compose_v2
+  become: true

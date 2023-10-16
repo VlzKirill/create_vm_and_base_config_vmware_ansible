@@ -1,0 +1,35 @@
+---
+- name: "Read {{ lvm.device_name }} partition tables"
+  community.general.parted:
+    device: "{{ lvm.device_name }}"
+    unit: MiB
+  register: device_info
+
+- name: Get last partition name
+  vars:
+    partition: "{{ device_info.disk.dev }}{{ device_info.partitions | length }}"
+  ansible.builtin.set_fact:
+    physical_volume: "{{ partition }}"
+
+- name: "Extend {{ physical_volume }} to fill all available space"
+  community.general.parted:
+    device: "{{ device_info.disk.dev }}"
+    number: "{{ device_info.partitions | length }}"
+    label: "{{ device_info.disk.table }}"
+    unit: "{{ device_info.disk.unit | upper | replace('I', 'i') }}"
+    flags: "{{ device_info.partitions[-1].flags }}"
+    resize: true
+    state: present
+
+- name: "Extend {{ lvm.volume_group }} to fill all available space"
+  community.general.lvg:
+    vg: "{{ lvm.volume_group }}"
+    pvs: "{{ physical_volume }}"
+    pvresize: true
+
+- name: "Extend {{ lvm.logical_volume }} to consume all remaining space in {{ lvm.volume_group }}"
+  community.general.lvol:
+    vg: "{{ lvm.volume_group }}"
+    lv: "{{ lvm.logical_volume }}"
+    size: +100%FREE
+    resizefs: true
